@@ -7,16 +7,14 @@ import (
 	"net/http"
 )
 
-var db *sql.DB
-
 const deleteUser = "DELETE FROM user WHERE id=?"
 const updateUser = "UPDATE user SET nama=?, username=? WHERE id=?"
 const createUser = "INSERT INTO user (id,nama,username) VALUES(?,?,?)"
 
-const getAllUsers = "SELECT FROM user"
-const getUserById = "SELECT FROM user WHERE id=?"
+const getAllUsers = "SELECT * FROM user"
+const getUserById = "SELECT * FROM user WHERE id=?"
 
-func GetUser() ([]model.User, int, error) {
+func GetUser(db *sql.DB) ([]model.User, int, error) {
 	var users []model.User
 
 	rows, err := db.Query(getAllUsers)
@@ -42,7 +40,7 @@ func GetUser() ([]model.User, int, error) {
 	return users, http.StatusOK, nil
 }
 
-func GetUserById(id string) ([]model.User, int, error) {
+func GetUserById(db *sql.DB, id string) ([]model.User, int, error) {
 	var users []model.User
 
 	rows, err := db.Query(getUserById, id)
@@ -56,8 +54,11 @@ func GetUserById(id string) ([]model.User, int, error) {
 		if err := rows.Scan(&usr.User_id, &usr.Nama, &usr.Username); err != nil {
 			return nil, http.StatusInternalServerError, fmt.Errorf("GetUserById(%s): %v", id, err)
 		}
-
 		users = append(users, usr)
+	}
+
+	if len(users) == 0 {
+		return nil, http.StatusBadRequest, fmt.Errorf("GetUser(%s): %v", id, err)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -67,7 +68,43 @@ func GetUserById(id string) ([]model.User, int, error) {
 	return users, http.StatusOK, nil
 }
 
-func DeleteUser(id string) (int, error) {
+func CreateUser(db *sql.DB, user model.User) (int, error) {
+	result, err := db.Exec(createUser, nil, user.Nama, user.Username)
+	if err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("CreateUser(): %v", err)
+	}
+
+	rowAffected, err := result.RowsAffected()
+	if err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("CreateUser(): %v", err)
+	}
+
+	if rowAffected == 0 {
+		return http.StatusBadRequest, fmt.Errorf("CreateUser(): Bad Request")
+	}
+
+	return http.StatusOK, nil
+}
+
+func UpdateUser(db *sql.DB, user model.User) (int, error) {
+	result, err := db.Exec(updateUser, user.Nama, user.Username, user.User_id)
+	if err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("CreateUser(): %v", err)
+	}
+
+	rowAffected, err := result.RowsAffected()
+	if err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("CreateUser(): %v", err)
+	}
+
+	if rowAffected == 0 {
+		return http.StatusBadRequest, fmt.Errorf("CreateUser(): Bad Request")
+	}
+
+	return http.StatusOK, nil
+}
+
+func DeleteUser(db *sql.DB, id string) (int, error) {
 	result, err := db.Exec(deleteUser, id)
 
 	if err != nil {
