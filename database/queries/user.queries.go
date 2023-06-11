@@ -58,7 +58,7 @@ func GetUserById(db *sql.DB, id string) ([]model.User, int, error) {
 	}
 
 	if len(users) == 0 {
-		return nil, http.StatusBadRequest, fmt.Errorf("GetUser(%s): %v", id, err)
+		return nil, http.StatusNotFound, fmt.Errorf("GetUser(%s): %v", id, err)
 	}
 
 	if err := rows.Err(); err != nil {
