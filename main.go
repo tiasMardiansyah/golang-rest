@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"example/web-service-gin/database/queries"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,12 +12,6 @@ import (
 )
 
 var db *sql.DB
-
-type user struct {
-	User_id  string `json:"id"`
-	Nama     string `json:"nama"`
-	Username string `json:"username"`
-}
 
 func main() {
 
@@ -41,106 +36,39 @@ func main() {
 		log.Fatal(pingErr)
 	}
 
-	fmt.Println("Connected")
+	fmt.Println("Connected to Database: ", cfg.DBName)
 
 	router := gin.Default()
 	router.GET("/user", func(ctx *gin.Context) {
-		userList, err := getUser()
-
+		userList, statusCode, err := queries.GetUser()
 		if err != nil {
+			ctx.IndentedJSON(statusCode, gin.H{"message": http.StatusText(statusCode)})
 			return
 		}
 
-		ctx.IndentedJSON(http.StatusOK, userList)
+		ctx.IndentedJSON(statusCode, userList)
 	})
 
 	router.GET("/user/:id", func(ctx *gin.Context) {
 		id := ctx.Param("id")
-		userList, err := getUserById(id)
+		userList, statusCode, err := queries.GetUserById(id)
 		if err != nil {
+			ctx.IndentedJSON(statusCode, gin.H{"message": http.StatusText(statusCode)})
 			return
 		}
 
-		for _, a := range userList {
-			if a.User_id == id {
-				ctx.IndentedJSON(http.StatusFound, a)
-				return
-			}
-		}
-
-		ctx.IndentedJSON(http.StatusNotFound, gin.H{"message": "User tidak ditemukan"})
+		ctx.IndentedJSON(statusCode, userList)
 	})
 
 	router.DELETE("/user/:id", func(ctx *gin.Context) {
 		id := ctx.Param("id")
-
-		//ambil data dari database
-		userList, err := getUserById(id)
+		statusCode, err := queries.DeleteUser(id)
 		if err != nil {
 			return
 		}
 
-		for i, a := range userList {
-			if a.User_id == id {
-				userList = append(userList[:i], userList[i+1:]...)
-				ctx.IndentedJSON(http.StatusOK, a)
-				return
-			}
-		}
-
-		ctx.IndentedJSON(http.StatusNotFound, gin.H{"message": "User tidak ditemukan"})
+		ctx.IndentedJSON(statusCode, gin.H{"message": http.StatusText(statusCode)})
 	})
 
 	router.Run(":8080")
-}
-
-func getUser() ([]user, error) {
-	var users []user
-
-	rows, err := db.Query("SELECT * FROM user")
-	if err != nil {
-		return nil, fmt.Errorf("kesalahan mengambil data")
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var usr user
-		if err := rows.Scan(&usr.User_id, &usr.Nama, &usr.Username); err != nil {
-			return nil, fmt.Errorf("GetUser: %v", err)
-		}
-
-		users = append(users, usr)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("GetUser: %v", err)
-	}
-
-	return users, nil
-}
-
-func getUserById(id string) ([]user, error) {
-	var users []user
-
-	rows, err := db.Query("SELECT * FROM user where id=?", id)
-	if err != nil {
-		return nil, fmt.Errorf("Kesalahan mengambil data")
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var usr user
-		if err := rows.Scan(&usr.User_id, &usr.Nama, &usr.Username); err != nil {
-			return nil, fmt.Errorf("GetUser: %v", err)
-		}
-
-		users = append(users, usr)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("GetUser: %v", err)
-	}
-
-	return users, nil
 }
